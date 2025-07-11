@@ -16,5 +16,5 @@ async def on_ready():
 async def ping(ctx):
     await ctx.send("🏓 Pong! Estou online!")
 
-keep_alive()  # Mantém o bot acordado no Render
+keep_alive()
 bot.run(DISCORD_TOKEN)
