@@ -6,26 +6,33 @@ import discord
 ultima_partida = None
 
 def extrair_dados_da_partida(tag):
-    url = f"https://brawlify.com/player/{tag.strip('#')}"
+    url = f"https://brawlify.com/stats/battles/{tag.strip('#')}"
     response = requests.get(url)
     if response.status_code != 200:
         print(f"[ERRO] Não foi possível acessar Brawlify para o jogador {tag}")
         return None
 
     soup = BeautifulSoup(response.text, "html.parser")
-    partidas = soup.find_all("div", class_="match-box")
 
-    for partida in partidas:
-        tipo = partida.find("div", class_="badge-mode").text.strip().lower()
-        if "friendly" in tipo:
-            mapa = partida.find("div", class_="mode-name").text.strip()
-            resultado = partida.find("div", class_="match-result")
-            resultado_texto = resultado.text.strip() if resultado else "Resultado desconhecido"
-            return {
-                "mapa": mapa,
-                "tipo": tipo,
-                "resultado": resultado_texto
-            }
+    partida = soup.find("div", class_="table-responsive")
+    if not partida:
+        print("[INFO] Nenhuma partida encontrada.")
+        return None
+
+    linhas = partida.select("table tbody tr")
+    for linha in linhas:
+        colunas = linha.find_all("td")
+        if len(colunas) >= 5:
+            tipo = colunas[2].text.strip().lower()
+            if "friendly" in tipo:
+                mapa = colunas[1].text.strip()
+                resultado = colunas[4].text.strip()
+                return {
+                    "mapa": mapa,
+                    "tipo": tipo,
+                    "resultado": resultado
+                }
+
     return None
 
 async def monitorar_partidas(bot, canal_nome, tag_jogador):
