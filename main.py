@@ -15,7 +15,7 @@ async def on_ready():
 
 @bot.command()
 async def ping(ctx):
-    await ctx.send("🏓 Pong! Estou online!")
+    await ctx.send("🏓 Pong! Eu estou online!")
 
 bot.loop.create_task(monitorar_partidas(bot, canal_nome="resultados", tag_jogador="#8VPGOPCPJ"))
 
