@@ -9,7 +9,7 @@ intents.message_content = True
 
 class HypesBot(commands.Bot):
     async def setup_hook(self):
-        self.loop.create_task(monitorar_partidas(self, canal_nome="resultados", tag_jogador="#8VPGOPCPJ"))
+        self.loop.create_task(monitorar_partidas(self, canal_nome="resultados", tag_jogador="#8VPG0PCPJ"))
 
 bot = HypesBot(command_prefix="!", intents=intents)
 
