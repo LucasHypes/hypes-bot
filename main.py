@@ -1,58 +1,25 @@
-import requests
-from bs4 import BeautifulSoup
-import asyncio
 import discord
+from discord.ext import commands
+from config import DISCORD_TOKEN
+from keep_alive import keep_alive
+from monitor import monitorar_partidas
 
-ultima_partida = None
+intents = discord.Intents.default()
+intents.message_content = True
 
-def extrair_dados_da_partida(tag):
-    url = f"https://brawlify.com/stats/battles/{tag.strip('#')}"
-    response = requests.get(url)
-    if response.status_code != 200:
-        print(f"[ERRO] Não foi possível acessar Brawlify para o jogador {tag}")
-        return None
+class HypesBot(commands.Bot):
+    async def setup_hook(self):
+        self.loop.create_task(monitorar_partidas(self, canal_nome="resultados", tag_jogador="#8VPGOPCPJ"))
 
-    soup = BeautifulSoup(response.text, "html.parser")
+bot = HypesBot(command_prefix="!", intents=intents)
 
-    partida = soup.find("div", class_="table-responsive")
-    if not partida:
-        print("[INFO] Nenhuma partida encontrada.")
-        return None
+@bot.event
+async def on_ready():
+    print(f'🤖 Bot conectado como {bot.user.name}')
 
-    linhas = partida.select("table tbody tr")
-    for linha in linhas:
-        colunas = linha.find_all("td")
-        if len(colunas) >= 5:
-            tipo = colunas[2].text.strip().lower()
-            if "friendly" in tipo:
-                mapa = colunas[1].text.strip()
-                resultado = colunas[4].text.strip()
-                return {
-                    "mapa": mapa,
-                    "tipo": tipo,
-                    "resultado": resultado
-                }
+@bot.command()
+async def ping(ctx):
+    await ctx.send("🏓 Pong! Estou online!")
 
-    return None
-
-async def monitorar_partidas(bot, canal_nome, tag_jogador):
-    global ultima_partida
-    await bot.wait_until_ready()
-
-    while not bot.is_closed():
-        print("[INFO] Verificando nova partida...")
-        dados = extrair_dados_da_partida(tag_jogador)
-        if dados and dados != ultima_partida:
-            ultima_partida = dados
-            msg = (
-                f"📊 **Nova partida amistosa detectada!**\n"
-                f"🗺️ Mapa: `{dados['mapa']}`\n"
-                f"🎮 Tipo: `{dados['tipo']}`\n"
-                f"🏆 Resultado: `{dados['resultado']}`"
-            )
-            for guild in bot.guilds:
-                canal = discord.utils.get(guild.text_channels, name=canal_nome)
-                if canal:
-                    await canal.send(msg)
-                    break
-        await asyncio.sleep(60)
+keep_alive()
+bot.run(DISCORD_TOKEN)
