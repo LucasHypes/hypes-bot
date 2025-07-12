@@ -1,13 +1,13 @@
 import requests
 from bs4 import BeautifulSoup
 import asyncio
+import discord
 
 ultima_partida = None
 
 def extrair_dados_da_partida(tag):
     url = f"https://brawlify.com/player/{tag.strip('#')}"
     response = requests.get(url)
-
     if response.status_code != 200:
         print(f"[ERRO] Não foi possível acessar Brawlify para o jogador {tag}")
         return None
@@ -26,7 +26,6 @@ def extrair_dados_da_partida(tag):
                 "tipo": tipo,
                 "resultado": resultado_texto
             }
-
     return None
 
 async def monitorar_partidas(bot, canal_nome, tag_jogador):
@@ -35,22 +34,18 @@ async def monitorar_partidas(bot, canal_nome, tag_jogador):
 
     while not bot.is_closed():
         print("[INFO] Verificando nova partida...")
-
         dados = extrair_dados_da_partida(tag_jogador)
-
         if dados and dados != ultima_partida:
             ultima_partida = dados
             msg = (
-                f"📊 **Nova partida amistosa jogada!**\n"
+                f"📊 **Nova partida amistosa detectada!**\n"
                 f"🗺️ Mapa: `{dados['mapa']}`\n"
                 f"🎮 Tipo: `{dados['tipo']}`\n"
                 f"🏆 Resultado: `{dados['resultado']}`"
             )
-
             for guild in bot.guilds:
                 canal = discord.utils.get(guild.text_channels, name=canal_nome)
                 if canal:
                     await canal.send(msg)
                     break
-
         await asyncio.sleep(60)
