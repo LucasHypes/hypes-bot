@@ -1,68 +1,51 @@
-import requests
-from bs4 import BeautifulSoup
-import asyncio
 import discord
+import aiohttp
+import asyncio
+from config import API_URL
 
-ultima_partida = None
+ultima_partida_id = None
 
-def extrair_dados_da_partida(tag):
-    url = f"https://brawlify.com/stats/battles/{tag.strip('#')}"
-    response = requests.get(url)
-    if response.status_code != 200:
-        print(f"[ERRO] Não foi possível acessar Brawlify para a tag {tag}")
-        return None
+async def monitorar_partidas(bot, canal_nome: str, tag_jogador: str):
+    global ultima_partida_id
 
-    soup = BeautifulSoup(response.text, "html.parser")
-
-    tabela = soup.find("div", class_="table-responsive")
-    if not tabela:
-        print("[INFO] Nenhuma tabela de partidas encontrada.")
-        return None
-
-    linha = tabela.select_one("table tbody tr")
-    if not linha:
-        print("[INFO] Nenhuma partida encontrada na tabela.")
-        return None
-
-    colunas = linha.find_all("td")
-    if len(colunas) < 5:
-        print("[INFO] Colunas da partida incompletas.")
-        return None
-
-    tipo = colunas[2].text.strip().lower()
-    if "friendly" not in tipo:
-        print("[INFO] Última partida não é amistosa.")
-        return None
-
-    mapa = colunas[1].text.strip()
-    resultado = colunas[4].text.strip()
-
-    return {
-        "mapa": mapa,
-        "tipo": tipo,
-        "resultado": resultado
-    }
-
-async def monitorar_partidas(bot, canal_nome, tag_jogador):
-    global ultima_partida
     await bot.wait_until_ready()
+    canal = discord.utils.get(bot.get_all_channels(), name=canal_nome)
+
+    if not canal:
+        print(f"❌ Canal '{canal_nome}' não encontrado.")
+        return
 
     while not bot.is_closed():
-        print("[INFO] Verificando nova partida...")
-        dados = extrair_dados_da_partida(tag_jogador)
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(API_URL) as resp:
+                    if resp.status != 200:
+                        print(f"❌ Erro na API: {resp.status}")
+                        await asyncio.sleep(30)
+                        continue
+                    
+                    dados = await resp.json()
 
-        if dados and dados != ultima_partida:
-            ultima_partida = dados
-            msg = (
-                f"📊 **Nova partida amistosa detectada!**\n"
-                f"🗺️ Mapa: `{dados['mapa']}`\n"
-                f"🎮 Tipo: `{dados['tipo']}`\n"
-                f"🏆 Resultado: `{dados['resultado']}`"
-            )
-            for guild in bot.guilds:
-                canal = discord.utils.get(guild.text_channels, name=canal_nome)
-                if canal:
-                    await canal.send(msg)
-                    print("[INFO] Partida enviada com sucesso!")
-                    break
-        await asyncio.sleep(60)
+            if "erro" in dados:
+                print("ℹ️ Nenhuma partida encontrada.")
+                await asyncio.sleep(30)
+                continue
+
+            partida_id_atual = f"{dados['modo']}-{dados['mapa']}-{dados['resultado']}"
+
+            if partida_id_atual != ultima_partida_id:
+                ultima_partida_id = partida_id_atual
+                mensagem = (
+                    f"📊 Nova partida amistosa detectada!\n"
+                    f"🗺️ Mapa: {dados['mapa']}\n"
+                    f"🏆 Resultado: {dados['resultado']}\n"
+                    f"🎮 Modo: {dados['modo']}"
+                )
+                await canal.send(mensagem)
+            else:
+                print("🔁 Nenhuma nova partida.")
+
+        except Exception as e:
+            print(f"⚠️ Erro durante monitoramento: {e}")
+
+        await asyncio.sleep(30)
